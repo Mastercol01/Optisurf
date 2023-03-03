@@ -9,3 +9,4 @@ LIST OF REQUEIRED LIBRARIES
 - numpy
 - matplotlib
 - sympy
+- netCDF4
