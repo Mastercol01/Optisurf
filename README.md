@@ -12,3 +12,4 @@ LIST OF REQUEIRED LIBRARIES
 - netCDF4
 - numba
 - cupy
+- pandas
