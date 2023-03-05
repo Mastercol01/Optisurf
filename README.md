@@ -10,4 +10,5 @@ LIST OF REQUEIRED LIBRARIES
 - matplotlib
 - sympy
 - netCDF4
-- basemap
+- numba
+- cupy
