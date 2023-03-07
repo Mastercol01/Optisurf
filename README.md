@@ -13,3 +13,4 @@ LIST OF REQUEIRED LIBRARIES
 - numba
 - cupy
 - pandas
+- openpyxl
