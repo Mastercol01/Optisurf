@@ -14,3 +14,4 @@ LIST OF REQUEIRED LIBRARIES
 - cupy
 - pandas
 - openpyxl
+- suntimes
