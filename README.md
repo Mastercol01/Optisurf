@@ -15,3 +15,4 @@ LIST OF REQUEIRED LIBRARIES
 - pandas
 - openpyxl
 - suntimes
+- solcore
