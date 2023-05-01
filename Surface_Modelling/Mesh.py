@@ -1486,8 +1486,10 @@ if __name__ == '__main__':
     import Surface_Modelling.Domain as dom
     from Ambience_Modelling.Sky import Sky
     from Ambience_Modelling.Site import Site
+    import Surface_Modelling.taylor_funcs as tayf
     import Ambience_Modelling.auxiliary_funcs as aux
     from scipy.interpolate import RegularGridInterpolator
+    
     
     # Define domain over which the explicit surface to mesh is defined.
     xy_plane = dom.RectDomain(dx = 0.05, dy = 0.05, dims = (1,1,1))
@@ -1791,7 +1793,6 @@ if __name__ == '__main__':
     Mesh_obj.visualize(config=config)
     
     
-#%%
     
     # --- COMPUTE SELF SHADING AND DIRECTIONS LOGIC ---
     Mesh_obj.compute_directions_logic(dvecs = dvecs, 
@@ -1864,8 +1865,116 @@ if __name__ == '__main__':
     print(f"EQUIVALENT ABSORBED ENERGY PER UNIT AREA : {0.001*Mesh_obj.total_absorbed_incident_energy/Mesh_obj.total_area} [kWh/m^2]")
         
 
+#%%   --- COMPUTATION OF ABSORBED INCIDENT ENERGY FOR POLY1---
 
 
+
+    # poly = np.array([[ 0.62401339, -0.93556008,  -0.43358944],
+    #                  [ 0.05675702,  0.07461949,   0.],
+    #                  [-0.00321045,  0.,           0.]])
+    
+    
+    
+    poly = np.array([[ 5.05654171e-01, -9.87507192e-01,  -7.87618204e-03],
+                     [ 6.26737011e-04,  2.24602935e-02,   0.],
+                     [-1.60123516e-02,  0.,           0.]])
+    
+    
+    
+    
+    Z = tayf.polyeval(poly, xy_plane.XYpows)
+    
+    Mesh_obj = Mesh(X=xy_plane.X, Y=xy_plane.Y, Z=Z)
+    
+    
+    
+    config = {"title" : "Horizontal Plane",
+              "axis_view" : (35,80),
+              "figsize" : (10,10)}
+    Mesh_obj.visualize(config=config)
+    
+    
+    
+    # --- COMPUTE SELF SHADING AND DIRECTIONS LOGIC ---
+    Mesh_obj.compute_directions_logic(dvecs = dvecs, 
+                                      rad   = 0.1, 
+                                      u     = 1/3,
+                                      v     = 1/3, 
+                                      lmbda = 3.0)
+    
+    
+    
+    # --- VISUALIZE SELF SHADING AND DIRECTIONS LOGIC ---
+    
+    # In white we plot the faces that recieve radiation for a certain direction.
+    # In brown we plot the faces that do not recieve radiation for a certain direction.
+    # in the title we write the ray-direction unit vector.
+    for j in range(len(dvecs)):
+        config = {"title" : f"Radiation recieved from direction {j} = {dvecs[j]}",
+                  "vmin" : -0.1,
+                  "vmax" : 1,
+                  "axis_view" : (35, 75)}
+        
+        Mesh_obj.visualize(facevalues = Mesh_obj.directions_logic[:,j], 
+                           config = config)
+    
+
+
+    # --- DEFINE COMPONENT OF RADIATION TO USE FOR THE COMPUTATION ---
+    time_integrated_spectral_irradiance_magnitudes =\
+    Sky_obj.time_integrated_spectral_irradiance_res["magnitude_global"]
+    
+    
+    # --- COMPUTATION OF ABSORBED ENERGY ---
+    # Compute absorbed energy by each face of the surface as well as the total.
+    
+    Mesh_obj.compute_absorbed_incident_energy(
+    absorbance_function = absorbance_function, 
+    dvecs               = dvecs,
+    time_integrated_spectral_irradiance_magnitudes =\
+    time_integrated_spectral_irradiance_magnitudes, 
+    wavelengths = wavelengths
+    )
+        
+    
+    #---  PLOT ENERGY ABSORBED BY FACE ---
+    config = {"title" : "Absorbed Energy by Face",
+              "cbar_title" : "[Wh]",
+              "axis_view" : (35, 75)}
+        
+    Mesh_obj.visualize(facevalues = Mesh_obj.absorbed_incident_energy, config = config)
+    
+    
+    #---  PRINT TOTAL ENERGY ABSORBED BY SURFACE ---
+    print("----- ABSORBED INCIDEN ENERGY -----")
+    print(f"TOTAL ABSORBED ENERGY : {Mesh_obj.total_absorbed_incident_energy/1000} [kWh]")
+    
+    
+    # Plot Energy per unit area absorbed by face.
+    config = {"title" : "Absorbed Energy per unit area by Face",
+              "cbar_title" : "[kWh/m^2]",
+              "axis_view" : (35, 75)}
+        
+    Mesh_obj.visualize(facevalues = 0.001*Mesh_obj.absorbed_incident_energy/Mesh_obj.areas, 
+                       config = config)
+    
+    
+    #---  PRINT EQUIVALENT ENERGY ABSORBED PER UNIT AREA ---
+    print(f"EQUIVALENT ABSORBED ENERGY PER UNIT AREA : {0.001*Mesh_obj.total_absorbed_incident_energy/Mesh_obj.total_area} [kWh/m^2]")
+    
+    
+    # And also th total:
+    fig = plt.figure(figsize=(16,12))
+    data = Mesh_obj.total_absorbed_incident_spectral_energy
+    plt.plot(wavelengths, data)
+    plt.xlim(wavelengths[0], wavelengths[-1])
+    plt.xlabel("Wavelengths [nm]")
+    plt.ylim(data.min(), data.max())
+    plt.ylabel("Total Absorbed Incident Spectral Energy [Wh/nm]")
+    plt.title("Total Absorbed Incident Spectral Energy by the surface.")
+    plt.xlim(0, 2000)
+    plt.grid()
+    plt.show()
 
 
 

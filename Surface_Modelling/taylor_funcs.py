@@ -239,6 +239,91 @@ def poly_orthonormal_frames(poly, XYpows):
     
     """
     This function computes a local orthonormal reference frame for a parametric
+    surface of the form rvec = [x, y, f(x,y)], where f(x,y) is a polynomial
+    in coefficient matrix representation, and returns the values of each
+    base vector over the specified domain.
+    
+    Parameters
+    ----------
+    
+    poly : 2D numpy.array of floats
+        Polynomial, in coefficient matrix representation, to differentiate.
+        Must be a square matrix.
+        
+    XYpows : dict of 2D numpy.array of floats
+        Dictionary storing the products of the meshgird values of X and Y
+        elevated to the i-th and j-th power respectively. In other words,
+        the key of the dictionary: (i,j) stores the value: (X**i)*(Y**j),
+        where X,Y are the meshgrid values of the x and y coordinates over
+        the domain in question.
+        
+    Returns
+    -------
+    
+    n = 3D numpy.array of floats
+        Unit normals of  the polynomial evaluated at each point specified in 
+        the domain. unit_normals[:,:,k] (where k = 0,1,2) gives the value of 
+        the x, y and z components of the unit normal vector (correspondingly)
+        evaluated over the whole domain.
+        
+    e1 = 3D numpy.array of floats
+        Vectors that are orthonormal to n and to e2, evaluated at each point of the
+        specified in the domain. e1[:,:,k] (where k = 0,1,2) gives the value of 
+        the x, y and z components of e1 (correspondingly) evaluated over the
+        whole domain.
+        
+    e2 = 3D numpy.array of floats
+        Vectors that are orthonormal to n and to e1, evaluated at each point of the
+        specified in the domain. e2[:,:,k] (where k = 0,1,2) gives the value of 
+        the x, y and z components of e1 (correspondingly) evaluated over the
+        whole domain.
+        
+    Notes
+    -----
+    1) Together n, e1 and e2 form a local/moving orthonormal frame of
+    reference.
+        
+    """
+    
+    # We retrieve the matrix dimensions of the xy_plane.
+    try: 
+        i_dim, j_dim = XYpows[(0,0)].shape
+    except AttributeError: 
+        i_dim, j_dim = (1, 1)
+        
+        
+    # We compute all the derivatives of the polynomial analytically.
+    poly_Dx = polydiff(poly, order=(1,0))
+    poly_Dy = polydiff(poly, order=(0,1))
+    
+    # Then we evaluate said derivatives over the domain in question.
+    Zx = polyeval(poly_Dx, XYpows)
+    Zy = polyeval(poly_Dy, XYpows)
+    
+    if i_dim == j_dim == 1:
+        Zx = np.array(Zx).reshape(i_dim, j_dim)
+        Zy = np.array(Zy).reshape(i_dim, j_dim)
+    
+    # We then compute ∂rvec/∂x and normalize it.
+    e1  = np.stack([np.ones((i_dim, j_dim)), np.zeros((i_dim, j_dim)), Zx]).T
+    e1 /= np.linalg.norm(e1, axis=-1).reshape(i_dim, j_dim, 1)
+
+    # We then compute ∂rvec/∂y and normalize it.    
+    e2 = np.stack([np.zeros((i_dim, j_dim)), np.ones((i_dim, j_dim)), Zy]).T
+    e2 /= np.linalg.norm(e2, axis=-1).reshape(i_dim, j_dim, 1) 
+        
+    # We compute the surface's unit normals at each point.
+    n = poly_unit_normals(poly, XYpows)
+
+    return n, e1, e2
+
+
+
+
+def poly_orthonormal_frames2(poly, XYpows):
+    
+    """
+    This function computes a local orthonormal reference frame for a parametric
     surface of the form r_vec = [x, y, f(x,y)], where f(x,y) is a polynomial
     in coefficient matrix representation, and returns the values of each
     base vector over the specified domain.
@@ -280,7 +365,7 @@ def poly_orthonormal_frames(poly, XYpows):
         
     Notes
     -----
-    1) Toguether n, e1 and e2 form a local/moving orthonormal frame of
+    1) Together n, e1 and e2 form a local/moving orthonormal frame of
     reference.
         
     """
@@ -316,6 +401,7 @@ def poly_orthonormal_frames(poly, XYpows):
     e2 = np.cross(n, e1)
         
     return n, e1, e2
+
 
 
 
@@ -872,35 +958,36 @@ def poly_plane_projection(poly, x0, y0, config = "default" ):
             -------------
             "xlim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the x-coordinate
-                in the global coordinate system.
+                in the global coordinate system. Default is (-0.5, 0.5).
                 
             "ylim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the y-coordinate
-                in the global coordinate system.
+                in the global coordinate system. Defualt is (-0.5, 0.5).
                 
             "zlim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the z-coordinate
-                in the global coordinate system.
+                in the global coordinate system. Defualt is (0, 1).
                 
             "s1lim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the s-coordinate
-                for exploration, in the local coordinate system.
+                for exploration, in the local coordinate system. Defualt is (-0.5, 0.5).
                 
             "t1lim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the t-coordinate
-                for exploration, in the local coordinate system.
+                for exploration, in the local coordinate system. Defualt is (-0.5, 0.5).
                 
             "s2lim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the s-coordinate
-                in the local coordinate system.
+                in the local coordinate system. Default is (-0.065, 0.065).
                 
             "t2lim" : 2-tuple of float
                 Allowed lower and upper bounds (in that order) of the t-coordinate
-                in the local coordinate system.
+                in the local coordinate system. Default is (-0.065, 0.065).
                 
             "m" : int
                 Number of samples to generate for s and t cooridnates. 
                 A greater value of m indicates that the mesh is more refined. 
+                Defualt is 2000.
 
                 
         
@@ -1445,6 +1532,7 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     import Surface_Modelling.Domain as dom
+    from scipy.interpolate import griddata
     # We create the rectangular over which a surface will be defined. 
     xy_plane = dom.RectDomain(dx = 0.01, dy = 0.01, dims = (1,1,1))
     
@@ -1457,6 +1545,10 @@ if __name__ == "__main__":
     poly = np.array([ [0, 1, 1],
                       [1, 0, 5],
                       [1, 5, 2] ])
+    
+    poly = np.array([ [0,  2, -1],
+                      [1,  4,  0],
+                      [-4, 0,  0] ])*0.05
     
     
     # Evaluate the polynomial over the entire defined domain.
@@ -1494,6 +1586,10 @@ if __name__ == "__main__":
     
     # We compute the curvatures of the original polynomial.
     H, K = poly_curvature(poly, XYpows)
+    kappa_max =  H + np.sqrt(H**2 - K)
+    kappa_min =  H - np.sqrt(H**2 - K)
+    Pmaxmin = np.maximum(abs(kappa_max), abs(kappa_min))
+    
     
     # Plot the gaussian curvature of the original surface.
     fig = plt.figure(figsize=(12,8))
@@ -1512,6 +1608,20 @@ if __name__ == "__main__":
     plt.ylabel("Y")
     plt.colorbar()
     plt.show()
+    
+    # Plot of the absolute value of mean curvature of the original surface.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(xy_plane.X, xy_plane.Y, Pmaxmin)
+    plt.title("max(|kappa_max|, |kappa_min|)")
+    plt.suptitle("Maximum Absolute Principal curvature of Surface")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.colorbar()
+    plt.grid()
+    plt.show()
+    
+    
+#%% 
     
     
     # We define 2 new polynomials  in order to test polymul
@@ -1629,4 +1739,159 @@ if __name__ == "__main__":
     print("-------------")
     print(poly_4)
             
+    
+    
+#%%
+
+    poly = np.array([[ 0.62401339, -0.93556008,  -0.43358944],
+                     [ 0.05675702,  0.07461949,   0.],
+                     [-0.00321045,  0.,           0.]])
+    
+    Z = polyeval(poly, xy_plane.XYpows)
+    H, K = poly_curvature(poly, xy_plane.XYpows)
+    
+    # Plot fitted surface. 
+    fig = plt.figure(figsize=(12,12))
+    ax = plt.axes(projection='3d')
+    ax.plot_surface(xy_plane.X, xy_plane.Y, Z)
+    plt.title(f"Fitted Poly: Polynomial order {(fitted_coeffs.shape[0]-1, fitted_coeffs.shape[1]-1)}")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    plt.show()
+    
+    # Plot of the absolute value of mean curvature of the original surface.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(xy_plane.X, xy_plane.Y, 2*abs(H))
+    plt.title("max(|kappa_max|, |kappa_min|)")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.colorbar()
+    plt.show()
+
+
+    
+    config = {"m" : 4000}
+    new_S2, newT2, new_lmbda = poly_plane_projection(poly   = poly, 
+                                                     x0     =  0.4,
+                                                     y0     = -0.4,
+                                                     config = config )
+    new_lmbda -= new_lmbda.min()
+    
+    
+    
+    
+    
+    # We compute how f(x,y) looks from the perspective of the solar cell being 
+    # situated at tangent point normal to the mold surface.
+    new_S2, new_T2, new_lmbda = poly_plane_projection(poly=poly, x0=0.4, y0=-0.4)   
+    new_lmbda -= new_lmbda.min()
+    
+    n = 100
+    S, T = np.meshgrid(np.linspace(-0.0625, 0.0625, n),
+                       np.linspace(-0.0625, 0.0625, n))
+    
+
+    g_st = griddata(points = np.stack([new_S2, new_T2]).T, 
+                    values = new_lmbda, 
+                    xi = np.stack([S.flatten(), T.flatten()]).T,
+                    method = 'cubic')
+    
+    g_st_2D = g_st.reshape((n, n))
+    
+    
+
+
+    # We plot the local surface.
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(12,12))
+    ax.plot_surface(S, T, g_st_2D)
+    ax.set_zlim(0, 0.006)
+    ax.set_xlabel("S [m]")
+    ax.set_ylabel("T [m]")
+    ax.set_zlabel("λ [m]")
+    ax.set_title("Local surface")
+    ax.view_init(30, 60)
+    plt.show()
+
+    # We also plot a countour plot for conviniency.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(S, T, g_st_2D)
+    plt.colorbar()
+    plt.xlabel("S [m]")
+    plt.ylabel("T [m]")
+    plt.title("Local surface")
+    plt.show()    
+    
+
+
+    # We attempt to compute the local surface's polynomial representation.
+    STpows           = dom.make_XYpows(S, T, 5, 5)
+    g_st_2D_hat_poly = poly_fit(S, T, g_st_2D, max_pow=3)
+    g_st_2D_hat      = polyeval(g_st_2D_hat_poly, STpows)        
+
+
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"}, figsize=(12,12))
+    ax.plot_surface(S, T, g_st_2D_hat)
+    ax.set_zlim(0, 0.005)
+    ax.set_xlabel("S [m]")
+    ax.set_ylabel("T [m]")
+    ax.set_zlabel("λ [m]")
+    ax.set_title("Local surface hat")
+    ax.view_init(30, 60)
+    plt.show()
+
+    # We also plot a countour plot for conviniency.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(S, T, g_st_2D_hat)
+    plt.colorbar()
+    plt.xlabel("S [m]")
+    plt.ylabel("T [m]")
+    plt.ylabel("T [m]")
+    plt.title("Local surface hat")
+    plt.show() 
+
+    # We also plot the absolute error.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(S, T, abs(g_st_2D - g_st_2D_hat))
+    plt.colorbar()
+    plt.xlabel("S [m]")
+    plt.ylabel("T [m]")
+    plt.ylabel("T [m]")
+    plt.title("Local surface hat: Abs Error")
+    plt.show() 
+
+
+    H, K = poly_curvature(g_st_2D_hat_poly, STpows)
+
+    # We also plot a countour plot for conviniency.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(S, T, K)
+    plt.colorbar()
+    plt.xlabel("S [m]")
+    plt.ylabel("T [m]")
+    plt.title("Local surface hat: Gaussian Curvature")
+    plt.show() 
+
+    # We also plot a countour plot for conviniency.
+    fig = plt.figure(figsize=(12,8))
+    plt.contourf(S, T, H)
+    plt.colorbar()
+    plt.xlabel("S [m]")
+    plt.ylabel("T [m]")
+    plt.title("Local surface hat: Mean Curvature")
+    plt.show() 
+    
+    
+    
+ 
+
+
+
+
+
+
+
+
+
+
     
